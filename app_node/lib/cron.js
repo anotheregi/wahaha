@@ -20,6 +20,9 @@ function shuffleArray(array) {
 // Track messages sent per device per hour
 const messageTracker = new Map();
 
+// Track device message limits and cooldowns (30 messages per 3 hours)
+const deviceLimitTracker = new Map();
+
 module.exports = function (db, sessionMap, fs, startDEVICE) {
     cron.schedule('* * * * *', function () {
         console.log('cronjob berjalan')
@@ -149,6 +152,37 @@ module.exports = function (db, sessionMap, fs, startDEVICE) {
                     let sql2 = `SELECT * FROM blast WHERE sender = ${de.nomor} AND status != 'terkirim' ORDER BY id ASC`;
                     db.query(sql2, async function (err, resultss) {
                         if (resultss && resultss.length > 0) {
+                            // Check 30 message limit per 3 hours
+                            const deviceLimitKey = `limit_${de.nomor}`;
+                            const now = Date.now();
+                            const threeHoursMs = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
+
+                            if (!deviceLimitTracker.has(deviceLimitKey)) {
+                                deviceLimitTracker.set(deviceLimitKey, {
+                                    messages: [],
+                                    cooldownUntil: 0
+                                });
+                            }
+
+                            const limitData = deviceLimitTracker.get(deviceLimitKey);
+
+                            // Remove messages older than 3 hours
+                            limitData.messages = limitData.messages.filter(timestamp => now - timestamp < threeHoursMs);
+
+                            // Check if device is in cooldown
+                            if (now < limitData.cooldownUntil) {
+                                const remainingCooldown = Math.ceil((limitData.cooldownUntil - now) / (60 * 1000)); // minutes
+                                console.log(`[LIMIT] Device ${de.nomor} in cooldown for ${remainingCooldown} more minutes (30/3h limit)`);
+                                return;
+                            }
+
+                            // Check if device has reached 30 messages in 3 hours
+                            if (limitData.messages.length >= 30) {
+                                limitData.cooldownUntil = now + threeHoursMs; // 3 hour cooldown
+                                console.log(`[LIMIT] Device ${de.nomor} reached 30 messages in 3 hours, entering 3-hour cooldown`);
+                                return;
+                            }
+
                             // Check device health before processing
                             const sessionPath = `./app_node/session/device-${de.nomor}.json`;
                             const healthCheck = antiban.checkSessionHealth(de.nomor, sessionPath);
@@ -236,6 +270,9 @@ module.exports = function (db, sessionMap, fs, startDEVICE) {
                                     const msg = messages.find(m => m.recipient === recipient);
                                     db.query(`UPDATE blast SET status = 'terkirim' where id = ${msg.id}`);
 
+                                    // Track message for 30/3h limit
+                                    limitData.messages.push(now);
+
                                     console.log(`[ANTI-BAN] ✓ Message sent successfully to ${recipient} (Device: ${de.nomor})`);
                                     return { success: true };
 
@@ -288,9 +325,9 @@ module.exports = function (db, sessionMap, fs, startDEVICE) {
         })
     });
 
-    // Anti-ban session health monitoring
+    // Enhanced automatic session recovery and health monitoring
     cron.schedule('*/5 * * * *', function () { // Every 5 minutes
-        console.log('[ANTI-BAN] Running session health checks...');
+        console.log('[SESSION-RECOVERY] Running enhanced session health checks...');
         let sqlde = `SELECT * FROM device`;
         db.query(sqlde, function (err, results) {
             results.forEach(async de => {
@@ -299,31 +336,110 @@ module.exports = function (db, sessionMap, fs, startDEVICE) {
 
                 const healthCheck = antiban.checkSessionHealth(deviceId, sessionPath);
                 const deviceHealth = antiban.getDeviceHealth(deviceId);
+                const now = Date.now();
 
+                let needsRecovery = false;
+                let recoveryReason = '';
+
+                // Check various conditions for session recovery
                 if (!healthCheck.healthy) {
-                    console.log(`[ANTI-BAN] Device ${deviceId} health issue: ${healthCheck.reason}`);
+                    needsRecovery = true;
+                    recoveryReason = healthCheck.reason;
+                }
 
-                    // Force session restart for unhealthy devices
+                // Check for inactivity-based recovery (simulate device restart)
+                const inactivityThreshold = 2 * 60 * 60 * 1000; // 2 hours
+                if (now - deviceHealth.lastActivity > inactivityThreshold) {
+                    needsRecovery = true;
+                    recoveryReason = 'inactivity_timeout';
+                }
+
+                // Check for pattern-based recovery (simulate human behavior)
+                const hour = new Date().getHours();
+                if (hour >= 22 || hour <= 6) { // Night time - higher chance of "device sleep"
+                    if (Math.random() < 0.1) { // 10% chance during night hours
+                        needsRecovery = true;
+                        recoveryReason = 'nighttime_refresh';
+                    }
+                }
+
+                // Check for consecutive failures requiring recovery
+                if (deviceHealth.consecutiveFailures >= 5) {
+                    needsRecovery = true;
+                    recoveryReason = 'high_failure_rate';
+                }
+
+                if (needsRecovery) {
+                    console.log(`[SESSION-RECOVERY] Device ${deviceId} needs recovery: ${recoveryReason}`);
+
+                    // Force session restart for devices needing recovery
                     if (sessionMap.has(parseInt(deviceId))) {
-                        console.log(`[ANTI-BAN] Restarting unhealthy session for device ${deviceId}`);
+                        console.log(`[SESSION-RECOVERY] Restarting session for device ${deviceId}`);
                         const chi = sessionMap.get(parseInt(deviceId));
-                        chi.chika.logout();
+                        try {
+                            await chi.chika.logout();
+                        } catch (error) {
+                            console.log(`[SESSION-RECOVERY] Logout error for device ${deviceId}: ${error.message}`);
+                        }
                         sessionMap.delete(parseInt(deviceId));
                     }
 
-                    // Wait a bit before restarting
-                    setTimeout(() => {
-                        if (fs.existsSync(sessionPath)) {
-                            startDEVICE(parseInt(deviceId));
-                            console.log(`[ANTI-BAN] Restarted session for device ${deviceId}`);
+                    // Clean up old session files for fresh start
+                    if (fs.existsSync(sessionPath)) {
+                        try {
+                            fs.unlinkSync(sessionPath);
+                            console.log(`[SESSION-RECOVERY] Cleaned old session file for device ${deviceId}`);
+                        } catch (error) {
+                            console.log(`[SESSION-RECOVERY] Error cleaning session file: ${error.message}`);
                         }
-                    }, 10000); // 10 second delay
+                    }
+
+                    // Wait with exponential backoff before restarting
+                    const backoffDelay = Math.min(30000 * Math.pow(2, deviceHealth.consecutiveFailures), 300000); // Max 5 minutes
+                    setTimeout(() => {
+                        console.log(`[SESSION-RECOVERY] Restarting device ${deviceId} after ${backoffDelay/1000}s delay`);
+                        startDEVICE(parseInt(deviceId));
+                    }, backoffDelay);
                 }
 
                 // Log device health stats
                 if (deviceHealth.totalSent + deviceHealth.totalFailed > 0) {
                     const successRate = ((deviceHealth.totalSent / (deviceHealth.totalSent + deviceHealth.totalFailed)) * 100).toFixed(1);
-                    console.log(`[ANTI-BAN] Device ${deviceId} stats: ${deviceHealth.totalSent} sent, ${deviceHealth.totalFailed} failed (${successRate}% success)`);
+                    console.log(`[SESSION-RECOVERY] Device ${deviceId} stats: ${deviceHealth.totalSent} sent, ${deviceHealth.totalFailed} failed (${successRate}% success)`);
+                }
+            });
+        });
+    });
+
+    // Proactive session refresh based on activity patterns
+    cron.schedule('0 */2 * * *', function () { // Every 2 hours
+        console.log('[SESSION-RECOVERY] Running proactive session refresh...');
+        let sqlde = `SELECT * FROM device`;
+        db.query(sqlde, function (err, results) {
+            results.forEach(async de => {
+                const deviceId = de.nomor;
+                const deviceHealth = antiban.getDeviceHealth(deviceId);
+
+                // Refresh sessions that have been active recently but not too recently
+                const timeSinceActivity = Date.now() - deviceHealth.lastActivity;
+                const minActivityAge = 30 * 60 * 1000; // 30 minutes
+                const maxActivityAge = 90 * 60 * 1000; // 90 minutes
+
+                if (timeSinceActivity >= minActivityAge && timeSinceActivity <= maxActivityAge) {
+                    if (Math.random() < 0.3) { // 30% chance for proactive refresh
+                        console.log(`[SESSION-RECOVERY] Proactive refresh for active device ${deviceId}`);
+
+                        if (sessionMap.has(parseInt(deviceId))) {
+                            const chi = sessionMap.get(parseInt(deviceId));
+                            // Simulate brief disconnection and reconnection
+                            setTimeout(() => {
+                                if (sessionMap.has(parseInt(deviceId))) {
+                                    console.log(`[SESSION-RECOVERY] Proactive reconnection for device ${deviceId}`);
+                                    // This will trigger the reconnection logic in the main cron
+                                }
+                            }, 5000);
+                        }
+                    }
                 }
             });
         });

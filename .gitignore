@@ -1,9 +1,7 @@
 node_modules/
 .env
 .htaccess
-database.sql
-wblast.rar
-TODO.md
+package-lock.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

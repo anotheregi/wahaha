@@ -35,11 +35,65 @@ db.connect((err) => {
 
 const sessionMap = new Map()
 
+// Device fingerprint randomization for anti-detection
+function generateDeviceFingerprint(deviceId) {
+    const browsers = [
+        ['Chrome', 'Chrome', '120.0.0.0'],
+        ['Firefox', 'Firefox', '121.0'],
+        ['Safari', 'Safari', '17.0'],
+        ['Edge', 'Edge', '120.0.0.0'],
+        ['Opera', 'Opera', '106.0.0.0']
+    ];
+
+    const platforms = [
+        'Windows NT 10.0; Win64; x64',
+        'Macintosh; Intel Mac OS X 10_15_7',
+        'X11; Linux x86_64',
+        'Windows NT 11.0; Win64; x64',
+        'Macintosh; Intel Mac OS X 10_14_6'
+    ];
+
+    const mobilePlatforms = [
+        'iPhone; CPU iPhone OS 17_0 like Mac OS X',
+        'Android 13; SM-G998B',
+        'Android 12; Pixel 6',
+        'iPhone; CPU iPhone OS 16_6 like Mac OS X'
+    ];
+
+    // Use device ID as seed for consistent but varied fingerprints
+    const seed = parseInt(deviceId) % 100;
+    const isMobile = seed % 4 === 0; // 25% chance of mobile device
+
+    const browserIndex = seed % browsers.length;
+    const platformIndex = isMobile ?
+        (seed % mobilePlatforms.length) :
+        (seed % platforms.length);
+
+    const [browserName, browserType, version] = browsers[browserIndex];
+    const platform = isMobile ? mobilePlatforms[platformIndex] : platforms[platformIndex];
+
+    // Generate unique user agent
+    const userAgent = isMobile ?
+        `Mozilla/5.0 (${platform}) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1` :
+        `Mozilla/5.0 (${platform}) AppleWebKit/537.36 (KHTML, like Gecko) ${browserName}/${version} Safari/537.36`;
+
+    return {
+        browser: [browserName, browserType, version],
+        userAgent: userAgent,
+        platform: platform,
+        isMobile: isMobile
+    };
+}
+
 async function startDEVICE(idevice) {
     const { state, saveCreds } = await useMultiFileAuthState(`./app_node/session/device-${idevice}`)
+
+    // Generate unique fingerprint for this device
+    const fingerprint = generateDeviceFingerprint(idevice);
+
     const chika = makeWASocket({
         logger: pino({ level: 'silent' }),
-        browser: ['WBLAST', 'Safari', '1.0.0'],
+        browser: fingerprint.browser,
         auth: state,
         printQRInTerminal: false,
         qrTimeout: 60000,
@@ -49,7 +103,10 @@ async function startDEVICE(idevice) {
         fireInitQueries: true,
         generateHighQualityLinkPreview: true,
         syncFullHistory: true,
-        markOnlineOnConnect: true
+        markOnlineOnConnect: true,
+        // Additional fingerprint randomization
+        userAgent: fingerprint.userAgent,
+        platform: fingerprint.platform
     })
     chika.decodeJid = (jid) => {
         if (!jid) return jid

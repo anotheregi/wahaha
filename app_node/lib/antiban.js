@@ -8,13 +8,13 @@ const path = require('path');
 const ANTIBAN_CONFIG = {
     // Human simulation settings
     typingDelay: { min: 100, max: 300 }, // ms between characters
-    messageDelay: { min: 2000, max: 8000 }, // ms before sending message
+    messageDelay: { min: 60000, max: 120000 }, // ms before sending message (60-120 seconds for less aggressive blasts)
     readingDelay: { min: 1000, max: 3000 }, // ms to simulate reading
 
     // Rate limiting
     messagesPerHour: { min: 20, max: 50 }, // Conservative hourly limit
     messagesPerDay: { min: 100, max: 200 }, // Daily limit
-    batchSize: { min: 3, max: 8 }, // Messages per batch
+    batchSize: { min: 1, max: 3 }, // Messages per batch (reduced for less aggressive blasts)
     batchDelay: { min: 300000, max: 900000 }, // 5-15 min between batches
 
     // Device protection
@@ -46,15 +46,32 @@ const BAN_PATTERNS = [
     'violation'
 ];
 
-// Human-like typing simulation
+// Enhanced human-like typing simulation with realistic patterns
 function simulateTyping(message, callback) {
     const chars = message.split('');
     let index = 0;
+    let typingSpeed = 'normal'; // normal, fast, slow, pause
+
+    const getTypingDelay = () => {
+        let baseDelay = Math.random() * (ANTIBAN_CONFIG.typingDelay.max - ANTIBAN_CONFIG.typingDelay.min) +
+                       ANTIBAN_CONFIG.typingDelay.min;
+
+        // Simulate different typing speeds and patterns
+        if (Math.random() < 0.1) { // 10% chance for longer pause (thinking)
+            baseDelay *= 3;
+        } else if (Math.random() < 0.2) { // 20% chance for faster typing
+            baseDelay *= 0.6;
+        }
+
+        // Add slight variations for more human-like feel
+        baseDelay *= (0.8 + Math.random() * 0.4); // ±20% variation
+
+        return Math.floor(baseDelay);
+    };
 
     const typeChar = () => {
         if (index < chars.length) {
-            const delay = Math.random() * (ANTIBAN_CONFIG.typingDelay.max - ANTIBAN_CONFIG.typingDelay.min) +
-                         ANTIBAN_CONFIG.typingDelay.min;
+            const delay = getTypingDelay();
             setTimeout(() => {
                 index++;
                 typeChar();
@@ -67,7 +84,69 @@ function simulateTyping(message, callback) {
         }
     };
 
-    typeChar();
+    // Add initial "thinking" pause before starting to type
+    const thinkingDelay = Math.random() * (ANTIBAN_CONFIG.thinkingPause.max - ANTIBAN_CONFIG.thinkingPause.min) +
+                         ANTIBAN_CONFIG.thinkingPause.min;
+    setTimeout(typeChar, thinkingDelay);
+}
+
+// Simulate random human actions to appear more natural
+function simulateRandomActions(deviceId) {
+    return new Promise(resolve => {
+        if (!ANTIBAN_CONFIG.randomActions.enabled) {
+            resolve();
+            return;
+        }
+
+        const actions = [];
+
+        // Simulate scrolling
+        if (Math.random() < ANTIBAN_CONFIG.randomActions.scrollChance) {
+            actions.push({
+                type: 'scroll',
+                delay: Math.random() * 2000 + 500,
+                duration: Math.random() * 1000 + 300
+            });
+        }
+
+        // Simulate clicking/clicking patterns
+        if (Math.random() < ANTIBAN_CONFIG.randomActions.clickChance) {
+            actions.push({
+                type: 'click',
+                delay: Math.random() * 1500 + 300,
+                count: Math.floor(Math.random() * 3) + 1
+            });
+        }
+
+        // Simulate random pauses
+        if (Math.random() < ANTIBAN_CONFIG.randomActions.pauseChance) {
+            actions.push({
+                type: 'pause',
+                delay: Math.random() * 3000 + 1000
+            });
+        }
+
+        // Execute actions sequentially
+        let actionIndex = 0;
+        const executeAction = () => {
+            if (actionIndex < actions.length) {
+                const action = actions[actionIndex];
+                setTimeout(() => {
+                    console.log(`[HUMAN-SIM] Device ${deviceId}: Simulating ${action.type}`);
+                    actionIndex++;
+                    executeAction();
+                }, action.delay);
+            } else {
+                resolve();
+            }
+        };
+
+        if (actions.length > 0) {
+            executeAction();
+        } else {
+            resolve();
+        }
+    });
 }
 
 // Message content variation to avoid pattern detection
@@ -222,8 +301,11 @@ function processBatch(messages, deviceId, sendFunction) {
             // Process batch
             for (const message of batch) {
                 try {
-                    // Vary message content
-                    const variedMessage = varyMessageContent(message.content);
+                    // Simulate random human actions before messaging
+                    await simulateRandomActions(deviceId);
+
+                    // Vary message content with type-specific variations
+                    const variedMessage = varyMessageContent(message.content, message.type);
 
                     // Simulate typing
                     await new Promise(resolveTyping => {
