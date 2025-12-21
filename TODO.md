@@ -25,6 +25,9 @@
 - [x] Apply 30/3h limit to regular messages (not just blast) in cron.js
 - [x] Change main cron schedule from '* * * * *' to '*/2 * * * *' (every 2 minutes)
 
-## Pending Tasks
-- [ ] Consider reducing 30 message limit to 20 for higher risk scenarios
+## Completed Tasks
+- [x] Fix SQL operator precedence bug in cron.js (added parentheses around OR conditions)
+
+## Completed Tasks
+- [x] Reduce 30 message limit to 20 for higher risk scenarios (updated in cron.js)
 

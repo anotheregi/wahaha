@@ -93,14 +93,14 @@ module.exports = function (db, sessionMap, fs, startDEVICE) {
                         return;
                     }
 
-                    // Check if device has reached 30 messages in 3 hours
-                    if (limitData.messages.length >= 30) {
+                    // Check if device has reached 20 messages in 3 hours
+                    if (limitData.messages.length >= 20) {
                         limitData.cooldownUntil = now + threeHoursMs; // 3 hour cooldown
-                        console.log(`[LIMIT] Device ${de.nomor} reached 30 messages in 3 hours, entering 3-hour cooldown`);
+                        console.log(`[LIMIT] Device ${de.nomor} reached 20 messages in 3 hours, entering 3-hour cooldown`);
                         return;
                     }
 
-                    let sql = `SELECT * FROM pesan WHERE status='MENUNGGU JADWAL' OR status='GAGAL' AND sender = ${de.nomor} LIMIT 1`;
+                    let sql = `SELECT * FROM pesan WHERE (status='MENUNGGU JADWAL' OR status='GAGAL') AND sender = ${de.nomor} LIMIT 1`;
                     const velixs = sessionMap.get(parseInt(de.nomor)).chika
                     db.query(sql, async function (err, result) {
                         shuffleArray(result);
