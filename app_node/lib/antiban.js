@@ -29,7 +29,18 @@ const ANTIBAN_CONFIG = {
         'Hi there!', 'Hello!', 'Hey!', 'Good day!',
         'Hope you\'re doing well', 'Just wanted to say hi',
         'Quick message for you', 'Thought I\'d reach out'
-    ]
+    ],
+
+    // Random actions simulation
+    randomActions: {
+        enabled: true,
+        scrollChance: 0.3,
+        clickChance: 0.2,
+        pauseChance: 0.4
+    },
+
+    // Thinking pause before typing
+    thinkingPause: { min: 500, max: 2000 }
 };
 
 // Device health tracking
@@ -264,6 +275,7 @@ function checkSessionHealth(deviceId, sessionPath) {
     try {
         const sessionExists = fs.existsSync(sessionPath);
         const health = getDeviceHealth(deviceId);
+        const now = Date.now();
 
         // Check if session is too old (simulate device restart)
         const sessionAge = now - health.lastActivity;

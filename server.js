@@ -102,7 +102,7 @@ async function startDEVICE(idevice) {
         emitOwnEvents: false,
         fireInitQueries: true,
         generateHighQualityLinkPreview: true,
-        syncFullHistory: true,
+    syncFullHistory: false,
         markOnlineOnConnect: true,
         // Additional fingerprint randomization
         userAgent: fingerprint.userAgent,

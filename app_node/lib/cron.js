@@ -24,7 +24,7 @@ const messageTracker = new Map();
 const deviceLimitTracker = new Map();
 
 module.exports = function (db, sessionMap, fs, startDEVICE) {
-    cron.schedule('* * * * *', function () {
+    cron.schedule('*/2 * * * *', function () {
         console.log('cronjob berjalan')
         let sqlde = `SELECT device.*, account.id as id_account, account.username, account.expired,account.status FROM device INNER JOIN account ON device.pemilik = account.id`;
         db.query(sqlde, function (err, results) {
@@ -66,6 +66,37 @@ module.exports = function (db, sessionMap, fs, startDEVICE) {
                     const hourlyLimit = Math.floor(Math.random() * (antiban.ANTIBAN_CONFIG.messagesPerHour.max - antiban.ANTIBAN_CONFIG.messagesPerHour.min + 1)) + antiban.ANTIBAN_CONFIG.messagesPerHour.min;
                     if (tracker.count >= hourlyLimit) {
                         console.log(`[ANTI-BAN] Device ${de.nomor} reached hourly limit (${hourlyLimit}), skipping`);
+                        return;
+                    }
+
+                    // Check 30 message limit per 3 hours for regular messages
+                    const deviceLimitKey = `limit_${de.nomor}`;
+                    const now = Date.now();
+                    const threeHoursMs = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
+
+                    if (!deviceLimitTracker.has(deviceLimitKey)) {
+                        deviceLimitTracker.set(deviceLimitKey, {
+                            messages: [],
+                            cooldownUntil: 0
+                        });
+                    }
+
+                    const limitData = deviceLimitTracker.get(deviceLimitKey);
+
+                    // Remove messages older than 3 hours
+                    limitData.messages = limitData.messages.filter(timestamp => now - timestamp < threeHoursMs);
+
+                    // Check if device is in cooldown
+                    if (now < limitData.cooldownUntil) {
+                        const remainingCooldown = Math.ceil((limitData.cooldownUntil - now) / (60 * 1000)); // minutes
+                        console.log(`[LIMIT] Device ${de.nomor} in cooldown for ${remainingCooldown} more minutes (30/3h limit)`);
+                        return;
+                    }
+
+                    // Check if device has reached 30 messages in 3 hours
+                    if (limitData.messages.length >= 30) {
+                        limitData.cooldownUntil = now + threeHoursMs; // 3 hour cooldown
+                        console.log(`[LIMIT] Device ${de.nomor} reached 30 messages in 3 hours, entering 3-hour cooldown`);
                         return;
                     }
 
@@ -134,9 +165,11 @@ module.exports = function (db, sessionMap, fs, startDEVICE) {
                                             break
                                     }
                                     tracker.count++;
+                                    // Track message for 30/3h limit
+                                    limitData.messages.push(now);
                                     batchCount++;
-                                    // Random delay 60-120s
-                                    await delay(60000, 120000);
+                                    // Random delay 45-180s for better variation
+                                    await delay(45000, 180000);
                                     // Random break after every 10 messages (5-15 min)
                                     if (batchCount % 10 === 0) {
                                         console.log(`Taking a break for device ${de.nomor}`);
