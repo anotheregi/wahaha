@@ -275,7 +275,12 @@ class Dashboards extends CI_Controller
     if ($this->input->post()) {
       $device = _POST('device');
       $pesan = _POST('pesan');
-      $media = _POST('media');
+      $media_source = $this->input->post('media_source') ?: 'local';
+      if ($media_source == 'external') {
+        $media = _POST('media_external');
+      } else {
+        $media = _POST('media');
+      }
       if ($this->input->post('all_number')) {
         $arr = [];
         foreach ($this->db->get_where('nomor', ['make_by' => $this->session->userdata('id_login')])->result() as $nomor) {

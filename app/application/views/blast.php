@@ -149,10 +149,31 @@ When you send a pdf file the message input will be used for the pdf file name." 
                                                         <input type="text" class="form-control" name="footer" placeholder="footer" autocomplete="off">
                                                     </span>
                                                     <div class="form-off" id="form-media">
-                                                        <label for="">Link media ( JPG,JPEG,PDF )</label>
-                                                        <div class="input-group">
-                                                            <input type="text" id="inputmedia" name="media" class="form-control" placeholder="Link media">
-                                                            <span onclick="mediamodal()" class="btn btn-primary"><span class="material-icons pt-1">file_upload</span></span>
+                                                        <label for="">Media Source</label>
+                                                        <div class="mb-3">
+                                                            <div class="form-check form-check-inline">
+                                                                <input class="form-check-input" type="radio" name="media_source" id="media_local" value="local" checked>
+                                                                <label class="form-check-label" for="media_local">
+                                                                    Upload Local Media
+                                                                </label>
+                                                            </div>
+                                                            <div class="form-check form-check-inline">
+                                                                <input class="form-check-input" type="radio" name="media_source" id="media_external" value="external">
+                                                                <label class="form-check-label" for="media_external">
+                                                                    External Link
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                        <div id="local_media_input">
+                                                            <label for="">Upload Media ( JPG,JPEG,PDF )</label>
+                                                            <div class="input-group">
+                                                                <input type="text" id="inputmedia" name="media" class="form-control" placeholder="Select media">
+                                                                <span onclick="mediamodal()" class="btn btn-primary"><span class="material-icons pt-1">file_upload</span></span>
+                                                            </div>
+                                                        </div>
+                                                        <div id="external_media_input" style="display: none;">
+                                                            <label for="">External Media URL</label>
+                                                            <input type="url" id="inputmedia_external" name="media_external" class="form-control" placeholder="https://example.com/image.jpg">
                                                         </div>
                                                         <small>Leave it blank if you want to send a message only.</small>
                                                     </div>
@@ -352,6 +373,19 @@ When you send a pdf file the message input will be used for the pdf file name." 
                 case '5':
                     alert('Coming Soon')
                     break
+            }
+        })
+
+        // Handle media source radio buttons
+        $('input[name="media_source"]').change(function() {
+            if ($(this).val() === 'local') {
+                $('#local_media_input').show();
+                $('#external_media_input').hide();
+                $('#inputmedia_external').val('');
+            } else {
+                $('#local_media_input').hide();
+                $('#external_media_input').show();
+                $('#inputmedia').val('');
             }
         })
     </script>
