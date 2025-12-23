@@ -8,24 +8,78 @@ const express = require('express')
 const socket = require("socket.io");
 const { toDataURL } = require('qrcode')
 const mysql = require('mysql');
-const request = require('request');
+const axios = require('axios');
 const { smsg } = require('./app_node/lib/myf')
 
 const app = express()
 const host = process.env.HOST
 const port = parseInt(process.env.PORT)
+const rateLimit = require('express-rate-limit');
+const winston = require('winston');
+
+// Setup Winston logger for monitoring
+const logger = winston.createLogger({
+    level: 'info',
+    format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.errors({ stack: true }),
+        winston.format.json()
+    ),
+    defaultMeta: { service: 'whatsapp-bot' },
+    transports: [
+        new winston.transports.File({ filename: 'error.log', level: 'error' }),
+        new winston.transports.File({ filename: 'combined.log' }),
+    ],
+});
+
+if (process.env.NODE_ENV !== 'production') {
+    logger.add(new winston.transports.Console({
+        format: winston.format.simple(),
+    }));
+}
+
+// Rate limiting middleware
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limit each IP to 100 requests per windowMs
+    message: 'Too many requests from this IP, please try again later.',
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+app.use(limiter);
 app.use(express.urlencoded({ extended: true }))
 app.use(express.json())
-const ser = app.listen(port, host, () => {
-    console.log(`Server is listening on http://${host}:${port}`)
-})
+
+// HTTPS configuration
+let ser;
+if (process.env.SSL_KEY_PATH && process.env.SSL_CERT_PATH) {
+    const https = require('https');
+    const fs = require('fs');
+    const sslOptions = {
+        key: fs.readFileSync(process.env.SSL_KEY_PATH),
+        cert: fs.readFileSync(process.env.SSL_CERT_PATH)
+    };
+    ser = https.createServer(sslOptions, app).listen(port, host, () => {
+        console.log(`Server is listening on https://${host}:${port}`)
+        logger.info(`Server started on https://${host}:${port}`);
+    });
+} else {
+    ser = app.listen(port, host, () => {
+        console.log(`Server is listening on http://${host}:${port}`)
+        logger.info(`Server started on http://${host}:${port}`);
+    });
+}
 const io = socket(ser);
 
 const db = mysql.createConnection({
     host: process.env.DB_HOSTNAME,
     user: process.env.DB_USERNAME,
     password: process.env.DB_PASSWORD,
-    database: process.env.DB_DATABASE
+    database: process.env.DB_DATABASE,
+    connectionLimit: 10, // Optimize connection pool
+    acquireTimeout: 60000,
+    timeout: 60000
 });
 
 db.connect((err) => {
@@ -102,7 +156,7 @@ async function startDEVICE(idevice) {
         emitOwnEvents: false,
         fireInitQueries: true,
         generateHighQualityLinkPreview: true,
-    syncFullHistory: false,
+        syncFullHistory: false,
         markOnlineOnConnect: true,
         // Additional fingerprint randomization
         userAgent: fingerprint.userAgent,
@@ -186,13 +240,9 @@ async function startDEVICE(idevice) {
     chika.ev.on('creds.update', saveCreds)
     chika.ev.on('contacts.upsert', async (m) => {
         console.log(m)
-        request({
-            url: process.env.BASE_WEB + '/app/api/callback',
-            method: "POST",
-            json: {
-                "id": idevice,
-                "data": m
-            }
+        axios.post(process.env.BASE_WEB + '/app/api/callback', {
+            "id": idevice,
+            "data": m
         })
     })
 

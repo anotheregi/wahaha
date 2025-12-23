@@ -27,7 +27,7 @@ module.exports = function (db, sessionMap, fs, startDEVICE) {
     cron.schedule('*/2 * * * *', function () {
         console.log('cronjob berjalan')
         let sqlde = `SELECT device.*, account.id as id_account, account.username, account.expired,account.status FROM device INNER JOIN account ON device.pemilik = account.id`;
-        db.query(sqlde, function (err, results) {
+        db.query(sqlde, [], function (err, results) {
             results.forEach(async de => {
                 var sekarang = new Date().getTime();
                 const myDate = new Date(de.expired)
@@ -35,7 +35,7 @@ module.exports = function (db, sessionMap, fs, startDEVICE) {
                 if (de.status != 'expired') {
                     if (de.expired != null) {
                         if (sekarang >= itstime) {
-                            db.query("UPDATE `account` SET `status` = 'expired' WHERE `account`.`id` = " + de.id_account, function (err, result) {
+                            db.query("UPDATE `account` SET `status` = 'expired' WHERE `account`.`id` = ?", [de.id_account], function (err, result) {
                                 if (err) throw err;
                                 console.log(result.affectedRows + " expired user " + de.username);
                                 if (sessionMap.has(parseInt(de.nomor))) {
@@ -100,9 +100,9 @@ module.exports = function (db, sessionMap, fs, startDEVICE) {
                         return;
                     }
 
-                    let sql = `SELECT * FROM pesan WHERE (status='MENUNGGU JADWAL' OR status='GAGAL') AND sender = ${de.nomor} LIMIT 1`;
+                    let sql = `SELECT * FROM pesan WHERE (status='MENUNGGU JADWAL' OR status='GAGAL') AND sender = ? LIMIT 1`;
                     const velixs = sessionMap.get(parseInt(de.nomor)).chika
-                    db.query(sql, async function (err, result) {
+                    db.query(sql, [de.nomor], async function (err, result) {
                         shuffleArray(result);
                         let batchCount = 0;
                         for (let i = 0; i < result.length; i++) {
@@ -120,17 +120,17 @@ module.exports = function (db, sessionMap, fs, startDEVICE) {
                                     switch (d.type) {
                                         case "Text":
                                             await velixs.sendMessage(number, { text: d.pesan });
-                                            db.query(`UPDATE pesan SET status = 'TERKIRIM' where id = ${d.id}`)
+                                            db.query(`UPDATE pesan SET status = 'TERKIRIM' where id = ?`, [d.id])
                                             break
                                         case "Text & Media":
                                             let filename = d.media.split('/')[d.media.split('/').length - 1];
                                             let filetype = filename.split('.')[1]
                                             if (filetype == 'jpg' || filetype == 'png' || filetype == 'jpeg') {
                                                 await velixs.sendMessage(number, { image: { url: `${d.media}` }, caption: `${d.pesan}` });
-                                                db.query(`UPDATE pesan SET status = 'TERKIRIM' where id = ${d.id}`)
+                                                db.query(`UPDATE pesan SET status = 'TERKIRIM' where id = ?`, [d.id])
                                             } else if (filetype == 'pdf') {
                                                 await velixs.sendMessage(number, { document: { url: `${d.media}` }, mimetype: 'application/pdf', fileName: `${d.pesan}` });
-                                                db.query(`UPDATE pesan SET status = 'TERKIRIM' where id = ${d.id}`)
+                                                db.query(`UPDATE pesan SET status = 'TERKIRIM' where id = ?`, [d.id])
                                             } else {
                                                 console.log('Filetype tidak dikenal');
                                             }
@@ -148,7 +148,7 @@ module.exports = function (db, sessionMap, fs, startDEVICE) {
                                                 headerType: 1
                                             }
                                             await velixs.sendMessage(number, buttonMessage);
-                                            db.query(`UPDATE pesan SET status = 'TERKIRIM' where id = ${d.id}`)
+                                            db.query(`UPDATE pesan SET status = 'TERKIRIM' where id = ?`, [d.id])
                                             break
                                         case "Url & Call Button":
                                             const templateButtons = [
@@ -161,7 +161,7 @@ module.exports = function (db, sessionMap, fs, startDEVICE) {
                                                 templateButtons: templateButtons
                                             }
                                             await velixs.sendMessage(number, templateMessage);
-                                            db.query(`UPDATE pesan SET status = 'TERKIRIM' where id = ${d.id}`)
+                                            db.query(`UPDATE pesan SET status = 'TERKIRIM' where id = ?`, [d.id])
                                             break
                                     }
                                     tracker.count++;
@@ -176,13 +176,13 @@ module.exports = function (db, sessionMap, fs, startDEVICE) {
                                         await delay(300000, 900000); // 5-15 min
                                     }
                                 } catch (err) {
-                                    db.query(`UPDATE pesan SET status = 'GAGAL' where id = ${d.id}`)
+                                    db.query(`UPDATE pesan SET status = 'GAGAL' where id = ?`, [d.id])
                                 }
                             }
                         }
                     });
                     // Enhanced Anti-Ban Blast Processing
-                    let sql2 = `SELECT * FROM blast WHERE sender = ${de.nomor} AND status != 'terkirim' ORDER BY id ASC`;
+                    let sql2 = `SELECT * FROM blast WHERE sender = ? AND status != 'terkirim' ORDER BY id ASC`;
                     db.query(sql2, async function (err, resultss) {
                         if (resultss && resultss.length > 0) {
                             // Check 30 message limit per 3 hours
@@ -301,7 +301,7 @@ module.exports = function (db, sessionMap, fs, startDEVICE) {
                                     // Update tracker and database
                                     tracker.count++;
                                     const msg = messages.find(m => m.recipient === recipient);
-                                    db.query(`UPDATE blast SET status = 'terkirim' where id = ${msg.id}`);
+                                    db.query(`UPDATE blast SET status = 'terkirim' where id = ?`, [msg.id]);
 
                                     // Track message for 30/3h limit
                                     limitData.messages.push(now);
@@ -314,7 +314,7 @@ module.exports = function (db, sessionMap, fs, startDEVICE) {
                                     console.log(`[ANTI-BAN] ✗ Failed to send to ${recipient} (Device: ${de.nomor}): ${error.message}${isBan ? ' [BAN DETECTED]' : ''}`);
 
                                     const msg = messages.find(m => m.recipient === recipient);
-                                    db.query(`UPDATE blast SET status = 'gagal' where id = ${msg.id}`);
+                                    db.query(`UPDATE blast SET status = 'gagal' where id = ?`, [msg.id]);
 
                                     return { success: false, error: error.message, isBan };
                                 }
@@ -345,8 +345,8 @@ module.exports = function (db, sessionMap, fs, startDEVICE) {
     // Session health check and reconnection
     cron.schedule('* * * * *', function () {
         console.log('cronjob reconnect device')
-        let sqlde = `SELECT *  FROM device`;
-        db.query(sqlde, function (err, results) {
+        let sqlde = `SELECT * FROM device`;
+        db.query(sqlde, [], function (err, results) {
             results.forEach(async de => {
                 if (fs.existsSync(`./app_node/session/device-${parseInt(de.nomor)}.json`)) {
                     if (!sessionMap.has(parseInt(de.nomor))) {
@@ -362,7 +362,7 @@ module.exports = function (db, sessionMap, fs, startDEVICE) {
     cron.schedule('*/5 * * * *', function () { // Every 5 minutes
         console.log('[SESSION-RECOVERY] Running enhanced session health checks...');
         let sqlde = `SELECT * FROM device`;
-        db.query(sqlde, function (err, results) {
+        db.query(sqlde, [], function (err, results) {
             results.forEach(async de => {
                 const deviceId = de.nomor;
                 const sessionPath = `./app_node/session/device-${deviceId}.json`;
@@ -448,7 +448,7 @@ module.exports = function (db, sessionMap, fs, startDEVICE) {
     cron.schedule('0 */2 * * *', function () { // Every 2 hours
         console.log('[SESSION-RECOVERY] Running proactive session refresh...');
         let sqlde = `SELECT * FROM device`;
-        db.query(sqlde, function (err, results) {
+        db.query(sqlde, [], function (err, results) {
             results.forEach(async de => {
                 const deviceId = de.nomor;
                 const deviceHealth = antiban.getDeviceHealth(deviceId);

@@ -37,9 +37,27 @@ RUN chown -R www-data:www-data /var/www/html \
 # Expose port 80 for Apache
 EXPOSE 80
 
-# Copy and set executable permissions for start script
-COPY start.sh /usr/local/bin/start.sh
-RUN chmod +x /usr/local/bin/start.sh
+# Copy configuration files
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY healthcheck.sh /usr/local/bin/healthcheck.sh
+COPY backup.sh /usr/local/bin/backup.sh
+COPY migration.sh /usr/local/bin/migration.sh
 
-# Start the application
-CMD ["/usr/local/bin/start.sh"]
+# Set executable permissions
+RUN chmod +x /usr/local/bin/healthcheck.sh \
+    && chmod +x /usr/local/bin/backup.sh \
+    && chmod +x /usr/local/bin/migration.sh
+
+# Create necessary directories and set permissions
+RUN mkdir -p /var/log/supervisor /var/log/backup /var/log/migration /var/www/html/backups /var/www/html/migrations \
+    && chown -R www-data:www-data /var/www/html/backups /var/www/html/migrations
+
+# Add health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD /usr/local/bin/healthcheck.sh
+
+# Run migrations on startup
+RUN /usr/local/bin/migration.sh || true
+
+# Start supervisord
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

@@ -1,5 +1,5 @@
 const { phoneNumberFormatter } = require('./formatter');
-const request = require('request');
+const axios = require('axios');
 
 module.exports = function (chika, chatUpdate, db, m, datetime) {
     mek = chatUpdate.messages[0]
@@ -10,17 +10,17 @@ module.exports = function (chika, chatUpdate, db, m, datetime) {
     receiver = chika.decodeJid(sender).replace(/\D/g, '').replace('@s.whatsapp.net', '')
     let today = new Date();
     let timedate = today.getFullYear() + '-' + (today.getMonth() + 1) + '-' + today.getDate() + ' ' + today.getHours() + ':' + today.getMinutes() + ':' + today.getSeconds()
-    let sqlautoreply = `SELECT * FROM autoreply WHERE keyword = "${text}" AND nomor = "${mynumb}"`;
-    db.query(sqlautoreply, function (err, result) {
+    let sqlautoreply = `SELECT * FROM autoreply WHERE keyword = ? AND nomor = ?`;
+    db.query(sqlautoreply, [text, mynumb], function (err, result) {
         if (!err) {
             result.forEach(data => {
                 console.log('send autoreply ke ' + sender)
                 switch (data.type) {
                     case "Text":
                         chika.sendMessage(sender, { text: data.response }).then(response => {
-                            db.query("INSERT INTO `reports` (`id`, `device`, `receiver`, `message`, `media`, `footer`, `btn1`, `btn2`, `btn3`, `btnid1`, `btnid2`, `btnid3`, `status`, `type`, `created_at`) VALUES" + `(NULL, '${devices}', '${receiver}', '${data.response}', '', '', '', '', '', '', '', '', 'Sent', 'received', '${timedate}')`)
+                            db.query("INSERT INTO `reports` (`id`, `device`, `receiver`, `message`, `media`, `footer`, `btn1`, `btn2`, `btn3`, `btnid1`, `btnid2`, `btnid3`, `status`, `type`, `created_at`) VALUES (NULL, ?, ?, ?, '', '', '', '', '', '', '', '', 'Sent', 'received', ?)", [devices, receiver, data.response, timedate])
                         }).catch(err => {
-                            db.query("INSERT INTO `reports` (`id`, `device`, `receiver`, `message`, `media`, `footer`, `btn1`, `btn2`, `btn3`, `btnid1`, `btnid2`, `btnid3`, `status`, `type`, `created_at`) VALUES" + `(NULL, '${devices}', '${receiver}', '${data.response}', '', '', '', '', '', '', '', '', 'Failed', 'received', '${timedate}')`)
+                            db.query("INSERT INTO `reports` (`id`, `device`, `receiver`, `message`, `media`, `footer`, `btn1`, `btn2`, `btn3`, `btnid1`, `btnid2`, `btnid3`, `status`, `type`, `created_at`) VALUES (NULL, ?, ?, ?, '', '', '', '', '', '', '', '', 'Failed', 'received', ?)", [devices, receiver, data.response, timedate])
                         });
                         break
                     case "Text & Media":
@@ -30,15 +30,15 @@ module.exports = function (chika, chatUpdate, db, m, datetime) {
                         const ext = array[array.length - 1];
                         if (ext == 'jpg' || ext == 'png' || ext == 'jpeg') {
                             chika.sendMessage(sender, { image: { url: `${media}` }, caption: `${ress}` }).then(response => {
-                                db.query("INSERT INTO `reports` (`id`, `device`, `receiver`, `message`, `media`, `footer`, `btn1`, `btn2`, `btn3`, `btnid1`, `btnid2`, `btnid3`, `status`, `type`, `created_at`) VALUES" + `(NULL, '${devices}', '${receiver}', '${ress}', '${media}', '', '', '', '', '', '', '', 'Sent', 'received', '${timedate}')`)
+                                db.query("INSERT INTO `reports` (`id`, `device`, `receiver`, `message`, `media`, `footer`, `btn1`, `btn2`, `btn3`, `btnid1`, `btnid2`, `btnid3`, `status`, `type`, `created_at`) VALUES (NULL, ?, ?, ?, ?, '', '', '', '', '', '', '', 'Sent', 'received', ?)", [devices, receiver, ress, media, timedate])
                             }).catch(err => {
-                                db.query(`INSERT INTO 'reports' ('id', 'device', 'receiver', 'message', 'media', 'footer', 'btn1', 'btn2', 'btn3', 'btnid1', 'btnid2', 'btnid3', 'status', 'type', 'created_at') VALUES (NULL, '${devices}', '${receiver}', '${ress}', '${media}', '', '', '', '', '', '', '', 'Failed', 'received', '${timedate}')`)
+                                db.query("INSERT INTO `reports` (`id`, `device`, `receiver`, `message`, `media`, `footer`, `btn1`, `btn2`, `btn3`, `btnid1`, `btnid2`, `btnid3`, `status`, `type`, `created_at`) VALUES (NULL, ?, ?, ?, ?, '', '', '', '', '', '', '', 'Failed', 'received', ?)", [devices, receiver, ress, media, timedate])
                             });
                         } else if (ext == 'pdf') {
                             const getlink = media.split("/");
                             const namefile = getlink[getlink.length - 1]
-                            let getstorage = `SELECT * FROM storage WHERE namafile = "${namefile}"`;
-                            db.query(getstorage, function (err, result) {
+                            let getstorage = `SELECT * FROM storage WHERE namafile = ?`;
+                            db.query(getstorage, [namefile], function (err, result) {
                                 if (err) throw err;
                                 result.forEach(gs => {
                                     chika.sendMessage(sender, { document: { url: `${media}` }, mimetype: 'application/pdf', fileName: `${gs.nama_original.split('.')[0]}` })
@@ -59,9 +59,9 @@ module.exports = function (chika, chatUpdate, db, m, datetime) {
                             headerType: 1
                         }
                         chika.sendMessage(sender, buttonMessage).then(response => {
-                            db.query("INSERT INTO `reports` (`id`, `device`, `receiver`, `message`, `media`, `footer`, `btn1`, `btn2`, `btn3`, `btnid1`, `btnid2`, `btnid3`, `status`, `type`, `created_at`) VALUES" + `(NULL, '${devices}', '${receiver}', '${data.response}', '', '${data.footer}', '${data.btn1}', '${data.btn2}', '${data.btn3}', '${data.btn1}', '${data.btn2}', '${data.btn3}', 'Sent', 'received', '${timedate}')`)
+                            db.query("INSERT INTO `reports` (`id`, `device`, `receiver`, `message`, `media`, `footer`, `btn1`, `btn2`, `btn3`, `btnid1`, `btnid2`, `btnid3`, `status`, `type`, `created_at`) VALUES (NULL, ?, ?, ?, '', ?, ?, ?, ?, ?, ?, ?, 'Sent', 'received', ?)", [devices, receiver, data.response, data.footer, data.btn1, data.btn2, data.btn3, data.btn1, data.btn2, data.btn3, timedate])
                         }).catch(err => {
-                            db.query("INSERT INTO `reports` (`id`, `device`, `receiver`, `message`, `media`, `footer`, `btn1`, `btn2`, `btn3`, `btnid1`, `btnid2`, `btnid3`, `status`, `type`, `created_at`) VALUES" + `(NULL, '${devices}', '${receiver}', '${data.response}', '', '${data.footer}', '${data.btn1}', '${data.btn2}', '${data.btn3}', '${data.btn1}', '${data.btn2}', '${data.btn3}', 'Failed', 'received', '${timedate}')`)
+                            db.query("INSERT INTO `reports` (`id`, `device`, `receiver`, `message`, `media`, `footer`, `btn1`, `btn2`, `btn3`, `btnid1`, `btnid2`, `btnid3`, `status`, `type`, `created_at`) VALUES (NULL, ?, ?, ?, '', ?, ?, ?, ?, ?, ?, ?, 'Failed', 'received', ?)", [devices, receiver, data.response, data.footer, data.btn1, data.btn2, data.btn3, data.btn1, data.btn2, data.btn3, timedate])
                         });
                         break
                     case "Url & Call Button":
@@ -75,9 +75,9 @@ module.exports = function (chika, chatUpdate, db, m, datetime) {
                             templateButtons: templateButtons
                         }
                         chika.sendMessage(sender, templateMessage).then(response => {
-                            db.query("INSERT INTO `reports` (`id`, `device`, `receiver`, `message`, `media`, `footer`, `btn1`, `btn2`, `btn3`, `btnid1`, `btnid2`, `btnid3`, `status`, `type`, `created_at`) VALUES" + `(NULL, '${devices}', '${receiver}', '${data.response}', '', '${data.footer}', '${data.btn1}', '${data.btn2}', '', '${data.btnid1}', '${data.btnid2}', '', 'Sent', 'received', '${timedate}')`)
+                            db.query("INSERT INTO `reports` (`id`, `device`, `receiver`, `message`, `media`, `footer`, `btn1`, `btn2`, `btn3`, `btnid1`, `btnid2`, `btnid3`, `status`, `type`, `created_at`) VALUES (NULL, ?, ?, ?, '', ?, ?, ?, '', ?, ?, '', 'Sent', 'received', ?)", [devices, receiver, data.response, data.footer, data.btn1, data.btn2, data.btnid1, data.btnid2, timedate])
                         }).catch(err => {
-                            db.query("INSERT INTO `reports` (`id`, `device`, `receiver`, `message`, `media`, `footer`, `btn1`, `btn2`, `btn3`, `btnid1`, `btnid2`, `btnid3`, `status`, `type`, `created_at`) VALUES" + `(NULL, '${devices}', '${receiver}', '${data.response}', '', '${data.footer}', '${data.btn1}', '${data.btn2}', '', '${data.btnid1}', '${data.btnid2}', '', 'Failed', 'received', '${timedate}')`)
+                            db.query("INSERT INTO `reports` (`id`, `device`, `receiver`, `message`, `media`, `footer`, `btn1`, `btn2`, `btn3`, `btnid1`, `btnid2`, `btnid3`, `status`, `type`, `created_at`) VALUES (NULL, ?, ?, ?, '', ?, ?, ?, '', ?, ?, '', 'Failed', 'received', ?)", [devices, receiver, data.response, data.footer, data.btn1, data.btn2, data.btnid1, data.btnid2, timedate])
                         });
                         break
                 }
@@ -85,8 +85,8 @@ module.exports = function (chika, chatUpdate, db, m, datetime) {
         }
     });
 
-    let sqlhook = `SELECT link_webhook FROM device WHERE nomor = ${mynumb} `;
-    db.query(sqlhook, function (err, result) {
+    let sqlhook = `SELECT link_webhook FROM device WHERE nomor = ?`;
+    db.query(sqlhook, [mynumb], function (err, result) {
         if (!err) {
             const webhookurl = result[0].link_webhook;
             if (webhookurl != '' || webhookurl != null) {
@@ -105,17 +105,13 @@ module.exports = function (chika, chatUpdate, db, m, datetime) {
             from: phoneNumberFormatter(sender),
             message: message
         }
-        request({
-            url: link,
-            method: "POST",
-            json: webhook_response
-        },
-            async function (error, response) {
-                if (!error && response.statusCode == 200) {
-                    if (response.body == null) {
+        axios.post(link, webhook_response)
+            .then(response => {
+                if (response.status === 200) {
+                    if (response.data == null) {
                         return 'gagal send webhook';
                     }
-                    const res = response.body;
+                    const res = response.data;
                     if (res.mode == 'chat') {
                         chika.sendMessage(sender, { text: res.pesan })
                     } else if (res.mode == 'reply') {
@@ -125,11 +121,11 @@ module.exports = function (chika, chatUpdate, db, m, datetime) {
                         const caption = res.data.caption;
                         chika.sendMessage(sender, { image: { url: `${url}` }, caption: `${caption}` })
                     }
-                } else {
-                    // console.log('Webhook 404');
                 }
-            }
-        );
+            })
+            .catch(error => {
+                // console.log('Webhook error');
+            });
     }
 
 }

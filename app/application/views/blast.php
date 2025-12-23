@@ -217,6 +217,8 @@ When you send a pdf file the message input will be used for the pdf file name." 
                                             </div>
                                             <div class="text-end btnkirim mt-3">
                                                 <button type="submit" class="btn btn-primary"><i class="material-icons">send</i>Send</button>
+                                                <button type="button" id="start-blast" class="btn btn-success ms-2"><i class="material-icons">play_arrow</i>Start Blast</button>
+                                                <button type="button" id="stop-blast" class="btn btn-danger ms-2"><i class="material-icons">stop</i>Stop Blast</button>
                                             </div>
                                         </form>
                                     </div>
@@ -388,6 +390,45 @@ When you send a pdf file the message input will be used for the pdf file name." 
                 $('#inputmedia').val('');
             }
         })
+
+        // Handle start/stop blast buttons
+        $('#start-blast').click(function() {
+            const device = $('select[name="device"]').val();
+            if (!device) {
+                alert('Please select a device first');
+                return;
+            }
+            $.ajax({
+                url: 'http://localhost:3000/start-blast',
+                method: 'POST',
+                data: { device: device },
+                success: function(response) {
+                    alert('Blast started successfully');
+                },
+                error: function() {
+                    alert('Failed to start blast');
+                }
+            });
+        });
+
+        $('#stop-blast').click(function() {
+            const device = $('select[name="device"]').val();
+            if (!device) {
+                alert('Please select a device first');
+                return;
+            }
+            $.ajax({
+                url: 'http://localhost:3000/stop-blast',
+                method: 'POST',
+                data: { device: device },
+                success: function(response) {
+                    alert('Blast stopped successfully');
+                },
+                error: function() {
+                    alert('Failed to stop blast');
+                }
+            });
+        });
     </script>
     <?php require_once('include_file.php') ?>
 </body>

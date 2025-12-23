@@ -1,15 +1,172 @@
+# Dependencies
 node_modules/
+vendor/
+composer.lock
+
+# Environment and Configuration
 .env
-.htaccess
+.env.local
+.env.production
+.env.staging
+.env.backup
+.env.example.local
+config.local.php
+config.production.php
+
+# Package Managers
 package-lock.json
+yarn.lock
+composer.lock
+
+# Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.DS_Store
-Thumbs.db
-*.log
-vendor/
-app/application/cache/*
+logs/
 app/application/logs/*
 app/system/logs/*
-app/storage/*
+app_node/logs/
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.metadata
+.classpath
+.c9/
+*.launch
+.settings/
+.vscode/
+.history/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+
+# Cache directories
+app/application/cache/*
+!app/application/cache/index.html
+app/storage/cache/*
+app/storage/logs/*
+app/storage/sessions/*
+
+# Session files
+app_node/session/*
+sessions/
+
+# WhatsApp session data (sensitive)
+app_node/session/
+sessions/
+*.session
+auth_info.json
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+database.sqlite
+backups/*.sql
+backups/*.gz
+
+# SSL Certificates
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+ssl/
+certs/
+
+# Backup files
+*.bak
+*.backup
+backups/
+*.sql.gz
+*.tar.gz
+
+# Deployment files
+deploy.sh
+railway.json
+render.yaml
+fly.toml
+Dockerfile.local
+docker-compose.override.yml
+
+# Security files
+.htaccess
+.htpasswd
+security.txt
+robots.txt
+
+# Build artifacts
+dist/
+build/
+public/build/
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+
+# Testing
+tests/_output/
+phpunit.xml
+codeception.yml
+
+# Documentation
+README.html
+docs/build/
+*.pdf
+
+# Miscellaneous
+.cache/
+.tmp/
+temp/
+tmp/

@@ -29,7 +29,7 @@
             <p class="auth-description">Please sign-in to your account and continue to the dashboard.</p>
             <?= _alert() ?>
             <form action="<?= base_url('auth/login') ?>" method="post">
-                <input type="hidden" name="<?=$this->security->get_csrf_token_name();?>" value="<?=$this->security->get_csrf_hash();?>" />
+                <input type="hidden" name="<?php echo $this->security->get_csrf_token_name(); ?>" value="<?php echo $this->security->get_csrf_hash(); ?>" />
                 <div class="auth-credentials m-b-xxl">
                     <label for="signInEmail" class="form-label">Username</label>
                     <input type="text" name="username" class="form-control m-b-md" id="signInEmail" aria-describedby="signInEmail" placeholder="Enter Username">
@@ -42,6 +42,29 @@
                         Remember Me
                     </label>
                 </div>
+
+                <!-- Consent Section -->
+                <div class="auth-consent m-b-xxl">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="accept_terms" id="acceptTerms" required>
+                        <label class="form-check-label" for="acceptTerms">
+                            I agree to the <a href="<?= base_url('terms-of-service') ?>" target="_blank">Terms of Service</a>
+                        </label>
+                    </div>
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" name="accept_privacy" id="acceptPrivacy" required>
+                        <label class="form-check-label" for="acceptPrivacy">
+                            I agree to the <a href="<?= base_url('privacy-policy') ?>" target="_blank">Privacy Policy</a>
+                        </label>
+                    </div>
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" name="accept_data_processing" id="acceptDataProcessing" required>
+                        <label class="form-check-label" for="acceptDataProcessing">
+                            I consent to the processing of my data for WhatsApp Business messaging services
+                        </label>
+                    </div>
+                </div>
+
                 <div class="auth-submit">
                     <button type="submit" class="btn btn-primary">Login</button>
                 </div>

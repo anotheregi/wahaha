@@ -17,3 +17,9 @@ $hook['pre_system'] = function () {
     $dotenv = Dotenv\Dotenv::create(APPPATH . "../../");
     $dotenv->load();
 };
+
+# Input validation middleware
+$hook['post_controller_constructor'] = function () {
+    $CI =& get_instance();
+    $CI->inputvalidation->validate_input();
+};

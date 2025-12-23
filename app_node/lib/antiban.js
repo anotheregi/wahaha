@@ -14,7 +14,7 @@ const ANTIBAN_CONFIG = {
     // Rate limiting
     messagesPerHour: { min: 20, max: 50 }, // Conservative hourly limit
     messagesPerDay: { min: 100, max: 200 }, // Daily limit
-    batchSize: { min: 1, max: 3 }, // Messages per batch (reduced for less aggressive blasts)
+    batchSize: { min: 1, max: 5 }, // Messages per batch (increased to allow up to 5 messages)
     batchDelay: { min: 300000, max: 900000 }, // 5-15 min between batches
 
     // Device protection
